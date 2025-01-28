@@ -135,6 +135,12 @@ class ChangeInShapeFilter(ChangeFilter):
         if new and new.attribs.get('visible') != 'false':
             new_shape = shapely.geometry.shape(new)
 
+        # If the old and new object have the same changeset id, then it's likely
+        # a way whose nodes have changed position. We're going to ignore that
+        # change because the node change will cause the changeset to be included.
+        if old and new and old.attribs["changeset"] == new.attribs["changeset"]:
+            return False
+
         thing_to_check = new_shape or old_shape
 
         return thing_to_check and thing_to_check.intersects(self.shape)
