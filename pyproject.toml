@@ -1,0 +1,22 @@
+[project]
+name = "overwatch"
+version = "0.1.0"
+description = "Monitors OpenStreetMap changes and sends notifications"
+authors = [
+    {name = "Ian Dees",email = "ian.dees@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "osmdiff>=0.4.3",
+    "shapely (>=2.0.6,<3.0.0)",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+
