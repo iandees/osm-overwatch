@@ -6,6 +6,7 @@ from datetime import datetime
 
 import requests
 from osmdiff import AugmentedDiff, Way
+
 from filters import ChangeInBoundingBoxFilter
 from src.users import UserInterest
 
