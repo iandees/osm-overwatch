@@ -46,7 +46,7 @@ def work() -> int:
     ]
 
     changesets = {}
-    seqn_to_start = 6508735
+    seqn_to_start = 6510021
     a = AugmentedDiff(sequence_number=seqn_to_start)
     a.base_url = "https://overpass.osmcha.org/api"
 
@@ -78,7 +78,7 @@ def work() -> int:
         for create in a.create:
             changes.append(("create", None, create))
         for modify in a.modify:
-            changes.append(("create", modify["old"], modify["new"]))
+            changes.append(("modify", modify["old"], modify["new"]))
         for delete in a.delete:
             changes.append(("delete", delete["old"], delete["new"]))
 
@@ -125,6 +125,16 @@ def work() -> int:
 
                         changeset_id = int(change[2].attribs["changeset"])
                         explanation = filter.explanation()
+                        logger.info(
+                            "adding %s because %s with change %s",
+                            changeset_id,
+                            explanation,
+                            (
+                                change[0],
+                                change[1].attribs if change[1] else None,
+                                change[2].attribs if change[2] else None,
+                            ),
+                        )
                         interesting_changesets_by_user[user_filter.user_id][
                             explanation
                         ].add(changeset_id)

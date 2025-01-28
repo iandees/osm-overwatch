@@ -7,4 +7,4 @@ class UserInterest:
         self.filters = filters
 
     def __repr__(self):
-        return 'UserInterest(user_id={}, filters={})'.format(self.user_id, self.filters)
+        return "UserInterest(user_id={}, filters={})".format(self.user_id, self.filters)
