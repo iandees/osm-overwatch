@@ -126,16 +126,7 @@ def work() -> int:
 
                         changeset_id = int(change[2].attribs["changeset"])
                         explanation = filter.explanation()
-                        logger.info(
-                            "adding %s because %s with change %s",
-                            changeset_id,
-                            explanation,
-                            (
-                                change[0],
-                                change[1].attribs if change[1] else None,
-                                change[2].attribs if change[2] else None,
-                            ),
-                        )
+
                         interesting_changesets_by_user[user_filter.user_id][
                             explanation
                         ].add(changeset_id)
