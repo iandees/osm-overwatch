@@ -203,3 +203,28 @@ class TagValueInListFilter(ChangeFilter):
         new_value = new.tags.get(self.tag) if new else None
 
         return (old_value != new_value) and (new_value in self.values)
+
+
+class ObjectWithTagChangedFilter(ChangeFilter):
+    """
+    Triggers when an object with the given tag key and value has changed.
+    """
+
+    def __init__(self, tag: str, value: str):
+        self.tag = tag
+        self.value = value
+
+    def explanation(self) -> str:
+        return f"Object with tag {self.tag}={self.value} changed"
+
+    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
+        action, old, new = change
+
+        # Check if the old object has the given key and value
+        old_has_tag = old and old.tags.get(self.tag) == self.value
+
+        # Check if the new object has the given key and value
+        new_has_tag = new and new.tags.get(self.tag) == self.value
+
+        # Return true if the old object had the tag and something changed, or if a new object with the tag was created
+        return (old_has_tag and (old != new)) or (action == "create" and new_has_tag)
