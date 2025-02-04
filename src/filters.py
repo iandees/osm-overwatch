@@ -179,3 +179,27 @@ class ChangeInBoundingBoxFilter(ChangeInShapeFilter):
         super().__init__(
             shapely.geometry.shape(bbox_geojson), name=name or f"bbox {bbox}"
         )
+
+
+class TagValueInListFilter(ChangeFilter):
+    """
+    Triggers on changes where an object's tag with the given key has changed to one of the given values.
+    """
+
+    def __init__(self, tag: str, values: list[str]):
+        self.tag = tag
+        self.values = values
+
+    def explanation(self) -> str:
+        if len(self.values) > 3:
+            return f"Tag {self.tag} changed to one of {self.values[:3]} and {len(self.values) - 3} more"
+
+        return f"Tag {self.tag} changed to one of {self.values}"
+
+    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
+        action, old, new = change
+
+        old_value = old.tags.get(self.tag) if old else None
+        new_value = new.tags.get(self.tag) if new else None
+
+        return (old_value != new_value) and (new_value in self.values)
