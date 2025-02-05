@@ -76,9 +76,11 @@ class Node(OSMObject):
 
     @classmethod
     def from_xml(cls, elem: ET.Element):
+        # Note that osmx doesn't support metadata for untagged nodes, so it's
+        # possible for a node to only have the ID present in the augmented diff
         return cls(
             _id=int(elem.attrib["id"]),
-            version=int(elem.attrib["version"]),
+            version=int(elem.attrib["version"]) if elem.attrib.get("version") else None,
             timestamp=(
                 datetime.fromisoformat(elem.attrib["timestamp"])
                 if elem.attrib.get("timestamp")
@@ -91,8 +93,8 @@ class Node(OSMObject):
             ),
             visible=elem.attrib.get("visible") != "false",
             tags={tag.attrib["k"]: tag.attrib["v"] for tag in elem.findall("tag")},
-            lat=float(elem.attrib["lat"]),
-            lon=float(elem.attrib["lon"]),
+            lat=float(elem.attrib["lat"]) if elem.attrib.get("lat") else None,
+            lon=float(elem.attrib["lon"]) if elem.attrib.get("lon") else None,
         )
 
     @property
@@ -131,13 +133,21 @@ class Way(OSMObject):
 
     @classmethod
     def from_xml(cls, elem: ET.Element):
+        # Similar to Nodes, osmx doesn't support metadata for untagged ways, so it's possible
+        # for ways to only have the ID present in the augmented diff
         return cls(
             _id=int(elem.attrib["id"]),
             version=int(elem.attrib["version"]),
-            timestamp=datetime.fromisoformat(elem.attrib["timestamp"]),
-            uid=int(elem.attrib["uid"]),
-            user=elem.attrib["user"],
-            changeset=int(elem.attrib["changeset"]),
+            timestamp=(
+                datetime.fromisoformat(elem.attrib["timestamp"])
+                if elem.attrib.get("timestamp")
+                else None
+            ),
+            uid=int(elem.attrib["uid"]) if elem.attrib.get("uid") else None,
+            user=elem.attrib["user"] if elem.attrib.get("user") else None,
+            changeset=(
+                int(elem.attrib["changeset"]) if elem.attrib.get("changeset") else None
+            ),
             visible=elem.attrib.get("visible") != "false",
             tags={tag.attrib["k"]: tag.attrib["v"] for tag in elem.findall("tag")},
             nodes=[NodeRef.from_xml(node) for node in elem.findall("nd")],
@@ -145,6 +155,14 @@ class Way(OSMObject):
 
     @property
     def __geo_interface__(self):
+        if not self.nodes:
+            # If the way was deleted and only the ID is present in the diff, there won't be any nodes
+            # to build a geometry from
+            return {
+                "type": "Polygon",
+                "coordinates": [],
+            }
+
         if self.nodes[0] == self.nodes[-1]:
             return {
                 "type": "Polygon",

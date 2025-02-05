@@ -2,8 +2,13 @@ import logging
 import sys
 from collections import defaultdict
 
-from filters import ChangeInBoundingBoxFilter
+from filters import (
+    ChangeInBoundingBoxFilter,
+    UserIDMadeChangeFilter,
+    UserIDChangedFilter,
+)
 from src.adiff import stream_adiff
+from src.filters import TagValueInListFilter
 from src.osm import OSMAPI
 from src.users import UserInterest
 
@@ -16,11 +21,16 @@ def work() -> int:
         UserInterest(
             user_id="iandees",
             filters=[
-                # UserIDChangedFilter(user_id=4732),
-                # UserIDMadeChangeFilter(user_id=4732),
+                UserIDChangedFilter(user_id=4732),
+                UserIDMadeChangeFilter(user_id=4732),
+                TagValueInListFilter("name", ["stupid", "dumb"]),
                 ChangeInBoundingBoxFilter(
                     bbox=(-94.240723, 44.486868, -92.164307, 45.323342),
                     name="Twin Cities",
+                ),
+                ChangeInBoundingBoxFilter(
+                    bbox=(-91.761932, 45.858402, -90.723724, 46.268136),
+                    name="Hayward",
                 ),
             ],
         ),
@@ -29,7 +39,7 @@ def work() -> int:
     osm_api = OSMAPI()
 
     changesets = {}
-    seqn_to_start = 6460229
+    seqn_to_start = 6460395
     for diff in stream_adiff(seqn=seqn_to_start):
         logger.info("Found %d changes", len(diff.changes()))
 

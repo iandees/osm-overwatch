@@ -98,6 +98,12 @@ def stream_adiff(seqn: int = None) -> Iterator[ChangeContainer]:
         url = ADIFF_SERVICE_URL_TEMPLATE.format(seqn=seqn)
         logger.info("Fetching %s", url)
         resp = requests.get(url)
+
+        if resp.status_code == 404:
+            logger.info("No changes found for seqn %d, waiting 30 sec", seqn)
+            time.sleep(30)
+            continue
+
         resp.raise_for_status()
 
         # parse the adiff and yield the change
@@ -107,4 +113,3 @@ def stream_adiff(seqn: int = None) -> Iterator[ChangeContainer]:
         yield container
 
         seqn += 1
-        time.sleep(30)
