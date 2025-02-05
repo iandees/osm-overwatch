@@ -1,12 +1,11 @@
-import logging
-
 import shapely
-from osmdiff import Node, Way
-from osmdiff.osm import OSMObject, Relation
+
+from src.adiff import Action
+from src.osm import OSMType
 
 
 class ChangeFilter:
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
+    def matches(self, change: Action) -> bool:
         """Returns True if the change matches the filter."""
         raise NotImplementedError()
 
@@ -21,20 +20,14 @@ class UserIDChangedFilter(ChangeFilter):
     """
 
     def __init__(self, user_id: int):
-        # Converting to string here because the OSM data will be strings
-        self.user_id = str(user_id)
+        self.user_id = user_id
 
     def explanation(self) -> str:
         return f"User ID changed from {self.user_id}"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
-        return (
-            old
-            and new
-            and old.attribs["uid"] == self.user_id
-            and new.attribs["uid"] != self.user_id
-        )
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
+        return old and new and old.uid == self.user_id and new.uid != self.user_id
 
 
 class UserIDMadeChangeFilter(ChangeFilter):
@@ -43,16 +36,14 @@ class UserIDMadeChangeFilter(ChangeFilter):
     """
 
     def __init__(self, user_id: int):
-        # Converting to string here because the OSM data will be strings
-        self.user_id = str(user_id)
-        self.logger = logging.getLogger(__name__)
+        self.user_id = user_id
 
     def explanation(self) -> str:
         return f"User ID {self.user_id} made a change"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
-        return new and new.attribs["uid"] == self.user_id
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
+        return new and new.uid == self.user_id
 
 
 class NewUserFilter(ChangeFilter):
@@ -68,16 +59,14 @@ class NewUserFilter(ChangeFilter):
     def explanation(self) -> str:
         return "New user made a change"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
 
         if not new:
             return False
 
-        user_id = int(new.attribs["uid"])
-
-        if user_id not in self.user_ids:
-            self.user_ids.add(user_id)
+        if new.uid not in self.user_ids:
+            self.user_ids.add(new.uid)
             return True
 
         return False
@@ -88,31 +77,23 @@ class ObjectChangedFilter(ChangeFilter):
     Triggers on changes where the object of type `obj_type` with the given ID has changed.
     """
 
-    def __init__(self, obj_type: str, id: int):
+    def __init__(self, obj_type: OSMType, id: int):
         self.obj_type = obj_type
-
-        if obj_type not in ("node", "way", "relation"):
-            raise ValueError("Invalid object type: {}".format(obj_type))
-
-        self.obj_id = str(id)
+        self.obj_id = id
 
     def explanation(self) -> str:
         return f"Object {self.obj_type} {self.obj_id} changed"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
 
         # The old and new will be the same type and id, so pick the first one that exists
         thing_to_check = old or new
 
-        if self.obj_type == "node" and not isinstance(thing_to_check, Node):
-            return False
-        if self.obj_type == "way" and not isinstance(thing_to_check, Way):
-            return False
-        if self.obj_type == "relation" and not isinstance(thing_to_check, Relation):
+        if thing_to_check.type != self.obj_type:
             return False
 
-        return thing_to_check.attribs["id"] == self.obj_id
+        return thing_to_check.id == self.obj_id
 
 
 class ChangeInShapeFilter(ChangeFilter):
@@ -130,25 +111,27 @@ class ChangeInShapeFilter(ChangeFilter):
     def explanation(self) -> str:
         return f'Change in shape "{self.name}"' if self.name else "Change in shape"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
 
         # TODO Skip relations for now because geometry checks are more difficult
-        if isinstance(old, Relation) or isinstance(new, Relation):
+        if (old and old.type == OSMType.RELATION) or (
+            new and new.type == OSMType.RELATION
+        ):
             return False
 
         old_shape = None
-        if old and old.attribs.get("visible") != "false":
+        if old and old.visible:
             old_shape = shapely.geometry.shape(old)
 
         new_shape = None
-        if new and new.attribs.get("visible") != "false":
+        if new and new.visible:
             new_shape = shapely.geometry.shape(new)
 
         # If the old and new object have the same changeset id, then it's likely
         # a way whose nodes have changed position. We're going to ignore that
         # change because the node change will cause the changeset to be included.
-        if old and new and old.attribs["changeset"] == new.attribs["changeset"]:
+        if old and new and old.changeset == new.changeset:
             return False
 
         thing_to_check = new_shape or old_shape
@@ -196,8 +179,8 @@ class TagValueInListFilter(ChangeFilter):
 
         return f"Tag {self.tag} changed to one of {self.values}"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
 
         old_value = old.tags.get(self.tag) if old else None
         new_value = new.tags.get(self.tag) if new else None
@@ -217,8 +200,8 @@ class ObjectWithTagChangedFilter(ChangeFilter):
     def explanation(self) -> str:
         return f"Object with tag {self.tag}={self.value} changed"
 
-    def matches(self, change: tuple[str, OSMObject, OSMObject]) -> bool:
-        action, old, new = change
+    def matches(self, change: Action) -> bool:
+        action, old, new = change.action, change.old, change.new
 
         # Check if the old object has the given key and value
         old_has_tag = old and old.tags.get(self.tag) == self.value
